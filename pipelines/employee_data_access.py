@@ -39,22 +39,22 @@ Colonnes :
 """
 
 async def handle(prompt: str) -> dict:
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "Tu es un assistant SQL. Ne réponds qu'avec une requête SQL valide pour SQL Server. "
-                "N'ajoute aucun commentaire, explication ou balise markdown. La base contient une table `employees`."
-                f"\n\n{TABLE_SCHEMA}"
-            )
-        },
-        {
-            "role": "user",
-            "content": prompt
-        }
-    ]
-
     try:
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Tu es un assistant SQL. Ne réponds qu'avec une requête SQL valide pour SQL Server. "
+                    "N'ajoute aucun commentaire, explication ou balise markdown. La base contient une table employees."
+                    f"\n\n{TABLE_SCHEMA}"
+                )
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+
         response = openai.ChatCompletion.create(
             engine=deployment,
             messages=messages,
@@ -83,14 +83,20 @@ async def handle(prompt: str) -> dict:
             "response": "Aucun résultat trouvé pour cette requête."
         }
 
-    rows = []
-    for _, row in df.iterrows():
-        lignes = [f"{col} : {row[col]}" for col in df.columns]
-        rows.append("\n".join(lignes))
+    try:
+        rows = []
+        for _, row in df.iterrows():
+            lignes = [f"{col} : {row[col]}" for col in df.columns]
+            rows.append("\n".join(lignes))
+        response_text = "\n\n---\n\n".join(rows)
 
-    response_text = "\n\n---\n\n".join(rows)
+        return {
+            "intent": "EmployeeDataAccess",
+            "response": response_text
+        }
 
-    return {
-        "intent": "EmployeeDataAccess",
-        "response": response_text
-    }
+    except Exception as e:
+        return {
+            "intent": "EmployeeDataAccess",
+            "response": f"Erreur de formatage: {e}"
+        }

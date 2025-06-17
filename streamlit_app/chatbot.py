@@ -1,4 +1,6 @@
 import streamlit as st
+import requests
+import json
 from PyPDF2 import PdfReader
 from docx import Document
 
@@ -7,9 +9,7 @@ def display():
     with cols[1]:
         st.markdown(f"<h3 style='text-align:center;'>Welcome {st.session_state.username} 👋</h3>", unsafe_allow_html=True)
 
-        # 🟦 Bloc complet du chat
         with st.container():
-            # ✍️ Formulaire de saisie
             with st.form("chat_form", clear_on_submit=True):
                 max_messages = 500
                 messages_to_display = st.session_state.messages[-max_messages:]
@@ -33,18 +33,35 @@ def display():
                             """,
                             unsafe_allow_html=True
                         )
+
                 uploaded_file = st.file_uploader("📄 Submit a document", type=["txt", "pdf", "docx"], label_visibility="visible")
                 user_input = st.text_input("Your message :", placeholder="Start to say something...", label_visibility="visible")
                 submitted = st.form_submit_button("Send")
 
-            st.markdown("</div>", unsafe_allow_html=True)  # 🔚 Fin bloc complet
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        # 💬 Gestion message texte
         if submitted and user_input:
             st.session_state.messages.append({"role": "user", "content": user_input})
+
+            try:
+                response = requests.post(
+                    "http://127.0.0.1:8000/orchestrate/",
+                    headers={"Content-Type": "application/json"},
+                    data=json.dumps({"prompt": user_input})
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    assistant_reply = data.get("response", "No response from server.")
+                else:
+                    assistant_reply = f"❌ Server error: {response.status_code}"
+
+            except Exception as e:
+                assistant_reply = f"❌ Request failed: {e}"
+
+            st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
             st.rerun()
 
-        # 📄 Gestion fichier uploadé
         if uploaded_file is not None:
             file_type = uploaded_file.type
 

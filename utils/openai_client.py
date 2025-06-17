@@ -1,5 +1,6 @@
 import openai, os
 from dotenv import load_dotenv
+
 load_dotenv()
 
 openai.api_type = "azure"
@@ -32,3 +33,16 @@ Request:
         temperature=0
     )
     return response['choices'][0]['message']['content'].strip()
+
+
+# 🔁 Fallback LLM for general questions (used in intent == "Other")
+async def call_openai(prompt: str) -> str:
+    response = openai.ChatCompletion.create(
+        engine=deployment_id,
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7
+    )
+    return response["choices"][0]["message"]["content"].strip()

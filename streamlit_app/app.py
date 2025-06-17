@@ -52,8 +52,7 @@ if "username" not in st.session_state:
 if "users" not in st.session_state:
     # ⚠️ Exemple d’utilisateurs autorisés en dur
     st.session_state.users = {
-        "admin": "admin",
-        "kevin_salopard": "vieillepute"
+        "admin": "hugolpb",
     }
 if "messages" not in st.session_state:
     st.session_state.messages = []
