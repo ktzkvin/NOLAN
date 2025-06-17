@@ -41,3 +41,9 @@ def load_all_files_from_blob() -> list[str]:
         except:
             continue
     return docs
+
+# 🔽 Ajoute ceci
+def load_blob_file(filename: str) -> bytes:
+    blob_client = container_client.get_blob_client(blob=filename)
+    data = blob_client.download_blob().readall()
+    return data
