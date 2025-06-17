@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 class UserRequest(BaseModel):
-    prompt: str = Field(..., example="Quelle est la durée annuelle de travail pour un cadre en forfait jours ?")
+    prompt: str = Field(..., example="Donne toutes les infos de John Smith dans la base RH")
 
 class UserResponse(BaseModel):
     intent: str
