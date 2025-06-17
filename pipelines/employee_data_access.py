@@ -1,54 +1,96 @@
+import os
+import re
+import openai
+import pyodbc
 import pandas as pd
-from services.file_loader import load_blob_file
-from io import BytesIO
+from dotenv import load_dotenv
 
-async def handle(prompt: str) -> str:
-    # Charger et parser correctement le CSV
-    blob_data = load_blob_file("hr_dataset_fr_new.csv")
-    try:
-        df = pd.read_csv(BytesIO(blob_data), encoding="utf-8", sep=";", on_bad_lines="skip")
-    except UnicodeDecodeError:
-        df = pd.read_csv(BytesIO(blob_data), encoding="latin1", sep=";", on_bad_lines="skip")
+load_dotenv()
 
+openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_base = os.getenv("OPENAI_API_BASE")
+openai.api_version = os.getenv("OPENAI_API_VERSION")
+deployment = os.getenv("AZURE_MODEL_DEPLOYMENT")
+conn_str = os.getenv("AZURE_SQL_CONNECTION_STRING")
 
-    # Extraction du nom depuis la question (simpliste)
-    import re
-    match = re.search(r"(?:de|d')\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)", prompt)
-    if not match:
-        return "Je n'ai pas réussi à identifier la personne dans la question."
+TABLE_SCHEMA = """
+Table: employees
 
-    nom_recherche = match.group(1).strip().lower()
-    df["nom"] = df["nom"].str.lower()
-    personne = df[df["nom"] == nom_recherche]
-
-    if personne.empty:
-        return f"Aucune donnée trouvée pour '{nom_recherche.title()}' dans la base RH."
-
-    # Structurer la réponse
-    ligne = personne.iloc[0]
-    return f"""📄 **Fiche employé : {ligne['nom'].title()}**
-
-- 📧 Email : {ligne['email']}
-- 🏢 Département : {ligne['departement']}
-- 👤 Poste : {ligne['poste']}
-- 🗓️ Date d'embauche : {ligne['date_embauche']}
-
-**Congés :**
-- Droit annuel : {ligne['conges.droit_annuel']} jours
-- Utilisés : {ligne['conges.utilises']} jours
-- Planifiés : {ligne['conges.planifies']} jours
-- Restants : {ligne['conges.restants']} jours
-
-**Congés maladie :**
-- Droit : {ligne['conges_maladie.droit']} jours
-- Utilisés : {ligne['conges_maladie.utilises']} jours
-- Restants : {ligne['conges_maladie.restants']} jours
-
-**Rémunération :**
-- Salaire : {ligne['remuneration.salaire']} €
-- Prime éligible : {'Oui' if ligne['remuneration.eligible_prime'] else 'Non'}
-- Prochaine évaluation : {ligne['remuneration.date_prochaine_evaluation']}
-
-**Avantages :**
-- Régime santé : {ligne['avantages.regime_sante']}
+Colonnes :
+- id (texte, ex: 'E001')
+- nom (texte)
+- email (texte)
+- departement (texte)
+- Manager (texte, 'Oui'/'Non')
+- poste (texte)
+- responsable (texte)
+- date_embauche (texte, format: 'JJ/MM/AAAA')
+- conges_droit_annuel (nombre)
+- conges_utilises (nombre)
+- conges_planifies (nombre)
+- conges_restants (nombre)
+- conges_maladie_droit (nombre)
+- conges_maladie_utilises (nombre)
+- conges_maladie_restants (nombre)
+- remuneration_salaire (nombre)
+- remuneration_eligible_prime (texte, 'VRAI'/'FAUX')
+- remuneration_date_prochaine_evaluation (texte, 'JJ/MM/AAAA')
+- avantages_regime_sante (texte)
 """
+
+async def handle(prompt: str) -> dict:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Tu es un assistant SQL. Ne réponds qu'avec une requête SQL valide pour SQL Server. "
+                "N'ajoute aucun commentaire, explication ou balise markdown. La base contient une table `employees`."
+                f"\n\n{TABLE_SCHEMA}"
+            )
+        },
+        {
+            "role": "user",
+            "content": prompt
+        }
+    ]
+
+    try:
+        response = openai.ChatCompletion.create(
+            engine=deployment,
+            messages=messages,
+            temperature=0,
+        )
+        raw_sql = response["choices"][0]["message"]["content"]
+        sql_query = re.sub(r"```sql|```", "", raw_sql).strip()
+    except Exception as e:
+        return {
+            "intent": "EmployeeDataAccess",
+            "response": f"Erreur LLM: {e}"
+        }
+
+    try:
+        with pyodbc.connect(conn_str) as conn:
+            df = pd.read_sql(sql_query, conn)
+    except Exception as e:
+        return {
+            "intent": "EmployeeDataAccess",
+            "response": f"Erreur SQL: {e}"
+        }
+
+    if df.empty:
+        return {
+            "intent": "EmployeeDataAccess",
+            "response": "Aucun résultat trouvé pour cette requête."
+        }
+
+    rows = []
+    for _, row in df.iterrows():
+        lignes = [f"{col} : {row[col]}" for col in df.columns]
+        rows.append("\n".join(lignes))
+
+    response_text = "\n\n---\n\n".join(rows)
+
+    return {
+        "intent": "EmployeeDataAccess",
+        "response": response_text
+    }

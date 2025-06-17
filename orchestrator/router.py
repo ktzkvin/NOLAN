@@ -28,4 +28,4 @@ async def orchestrate(request: UserRequest):
     else:
         result = "Intent not recognized or not supported yet."
 
-    return UserResponse(intent=intent, response=result)
+    return UserResponse(**result)
