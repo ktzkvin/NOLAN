@@ -22,4 +22,4 @@
 
 2. Architecture
 
-![NOLAN Architecture](./assets/NOLAN_diagram.png)
+![NOLAN Architecture](./assets/NOLAN_diagram.jpg)
