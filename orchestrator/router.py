@@ -2,8 +2,11 @@ from fastapi import APIRouter
 from models.intent_model import UserRequest, UserResponse
 from utils.openai_client import detect_intent
 from pipelines import (
-    document_analysis, 
-    # to be implemented
+    document_analysis,
+    policy_search,
+    employee_data_access,
+    document_generation,
+    admin_function
 )
 
 router = APIRouter()
@@ -11,18 +14,18 @@ router = APIRouter()
 @router.post("/")
 async def orchestrate(request: UserRequest):
     intent = await detect_intent(request.prompt)
-    
-    if intent == "DocumentAnalysis":
+
+    if intent == "PolicySearch":
+        result = await policy_search.handle(request.prompt)
+    elif intent == "DocumentAnalysis":
         result = await document_analysis.handle(request.prompt)
-    elif intent == "PolicySearch":
-        result = 'await policy_search.handle(request.prompt)'
     elif intent == "EmployeeDataAccess":
-        result = 'await employee_data.handle(request.prompt)'
+        result = await employee_data_access.handle(request.prompt)
     elif intent == "DocumentGeneration":
-        result = 'await document_generation.handle(request.prompt)'
+        result = await document_generation.handle(request.prompt)
     elif intent == "AdminFunction":
-        result = 'await admin.handle(request.prompt)'
+        result = await admin_function.handle(request.prompt)
     else:
-        result = "I'm sorry, I don't understand. Could you please rephrase?"
-    
+        result = "Intent not recognized or not supported yet."
+
     return UserResponse(intent=intent, response=result)
