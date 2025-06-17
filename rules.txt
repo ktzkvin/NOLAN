@@ -1,0 +1,53 @@
+# ACCORD CADRE – RÈGLES D’ENGAGEMENT
+
+## 🗂 Préambule
+
+Le présent document définit les règles d’accès et de déploiement du protocole _Accord Cadre_, activable uniquement sous conditions documentaires.
+
+## 🎲 1. Participants
+
+Chaque session doit être constituée d’au moins :
+- 1 **Responsable référent** (RR)
+- 2 à 5 **Acteurs délégués** (AD)
+
+Les rôles ne peuvent être échangés sans validation formelle.
+
+## 🧾 2. Objectif
+
+Le but est d’atteindre un **Consensus Actif** sur un Segment de Référence, en appliquant les contraintes de l’Annexe I (non fournie).
+
+## 🔁 3. Déroulement
+
+Chaque tour comprend :
+1. **Activation d’un Contexte Latent**
+2. **Formulation d’un Accord Formulé (AF)**
+3. **Évaluation Convergente**
+4. **Révision ou Validation**
+
+Aucun tour ne peut se conclure sans convergence implicite entre RR et 75% des AD.
+
+## ⛔ 4. Interdits
+
+- Toute Référence Directe sans Ancrage Documenté
+- Usage de l’Article 5.2 en double séquence
+- Redondance de Sémantique avec clause active
+
+## 🧩 5. Déclencheurs spéciaux
+
+| Code        | Condition                 | Effet                        |
+|-------------|---------------------------|-------------------------------|
+| `NOL-∆`     | Conflit sans médiation     | Suspension immédiate         |
+| `SYN-43`    | Alignement total sur AF    | Passage en Phase Déclarative |
+| `RAG-VOID`  | Absence de source trouvée  | Appel au MétaRéférent        |
+
+## 📚 6. Terminaison
+
+La session prend fin si :
+- Tous les Segments sont validés
+- Un acteur utilise la clause Dormante
+- Un Document Sourd est invoqué 2 fois
+
+---
+
+*Le présent Accord Cadre n’est compréhensible que pour les systèmes habilités à lire entre les lignes documentaires.*
+
