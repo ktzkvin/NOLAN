@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import streamlit as st
 
 st.set_page_config(page_title="N.O.L.A.N. – Assistant RH", layout="centered")
@@ -75,3 +76,10 @@ if submitted and user_input:
 # --- Bas de page ---
 st.markdown("---")
 st.markdown('<p style="text-align: center; color: #999;">N.O.L.A.N. © 2025 – Hackathon EFREI x Finelog</p>', unsafe_allow_html=True)
+=======
+from fastapi import FastAPI
+from orchestrator import router
+
+app = FastAPI(title="NOLAN Orchestrator")
+app.include_router(router.router, prefix="/orchestrate")
+>>>>>>> Stashed changes
