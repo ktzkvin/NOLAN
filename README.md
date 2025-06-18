@@ -1,3 +1,4 @@
+
 # NOLAN — No One Likes Administrative Nonsense
 
 ![NOLAN Banner](./assets/banner_nolan.jpg)
@@ -16,21 +17,22 @@ source venv/bin/activate      # or .\venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-### 2. Run the backend
+### 2. Run the backend (FastAPI)
 
 ```bash
 uvicorn main:app --reload
 ```
 
-> Launches the FastAPI orchestrator for intent routing and API handling on `http://127.0.0.1:8000`
+> Launches the FastAPI orchestrator for intent routing and API handling on `http://127.0.0.1:8000`  
+> You can test all endpoints independently via the automatically generated Swagger UI at `http://127.0.0.1:8000/docs`.
 
-### 3. Run the frontend
+### 3. Run the frontend (Streamlit)
 
 ```bash
 streamlit run .streamlit/app.py
 ```
 
-> Opens the chatbot UI for HR interaction
+> Opens the chatbot UI for HR interaction.
 
 ---
 
@@ -81,3 +83,5 @@ The NOLAN system is built entirely on Azure infrastructure, combining storage, A
 ## 📤 Output
 
 All answers are routed back via the Streamlit frontend after being processed through the orchestrator and appropriate Azure service pipelines.
+
+The backend (FastAPI) can also be queried independently using tools like Postman or cURL via `http://localhost:8000/docs` for testing and integration purposes.
