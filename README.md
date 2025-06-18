@@ -1,6 +1,6 @@
 # NOLAN — No One Likes Administrative Nonsense
 
-**NOLAN** is an intelligent HR assistant designed to reduce administrative workload by automating document analysis, HR policy retrieval, employee data access, and compliance verification using Azure's cloud and AI services.
+Because no one likes administrative nonsense, NOLAN is your AI-powered HR assistant that automates document analysis, HR policy retrieval, employee data access and compliance checks using Azure's AI and cloud services.
 
 ---
 
@@ -72,7 +72,7 @@ The NOLAN system is built entirely on Azure infrastructure, combining storage, A
 
 ## 🎯 Objective
 
-> The goal is to offer HR staff a seamless AI assistant that can interpret, search, generate and verify — across all HR documentation and employee datasets — with minimal manual overhead.
+> The goal is to offer HR staff a seamless AI assistant that can interpret, search, generate and verify, across all HR documentation and employee datasets, with minimal manual overhead.
 
 ---
 
