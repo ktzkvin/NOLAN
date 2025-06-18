@@ -4,6 +4,12 @@ import json
 from PyPDF2 import PdfReader
 from docx import Document
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from services.chat_history import save_conversation
+
 def display():
     cols = st.columns([1, 2, 1])
     with cols[1]:
@@ -44,6 +50,9 @@ def display():
 
             assistant_msg = {"role": "assistant", "content": assistant_reply}
             st.session_state.messages.append(assistant_msg)
+
+            # Save the conversation to the database
+            save_conversation(st.session_state.username, st.session_state.messages)
 
             st.rerun()
 
