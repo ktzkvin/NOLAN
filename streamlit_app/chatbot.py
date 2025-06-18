@@ -13,10 +13,10 @@ from services.chat_history import save_conversation, load_conversations
 
 
 def display():
-    # 🟦 Charger les conversations passées
+    # Charger les conversations passées
     history = load_conversations(st.session_state.username)
 
-    # 🟨 Afficher la sidebar
+    # Afficher la sidebar
     st.sidebar.title("💬 Conversations")
     if history:
         for idx, convo in enumerate(history):
@@ -27,7 +27,7 @@ def display():
     else:
         st.sidebar.info("Aucune conversation enregistrée.")
 
-    # 🟩 Affichage principal
+    # Affichage principal
     cols = st.columns([1, 2, 1])
     with cols[1]:
         st.markdown(f"<h3 style='text-align:center;'>Welcome {st.session_state.username} 👋</h3>", unsafe_allow_html=True)
@@ -68,7 +68,7 @@ def display():
             assistant_msg = {"role": "assistant", "content": assistant_reply}
             st.session_state.messages.append(assistant_msg)
 
-            # 💾 Sauvegarde dans Cosmos DB
+            # Sauvegarde dans Cosmos DB
             save_conversation(st.session_state.username, st.session_state.messages)
 
             st.rerun()
