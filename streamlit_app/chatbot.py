@@ -71,20 +71,32 @@ def display():
                 st.warning("Unsupported file type.")
 
 def render_bubble(msg):
-    color = "#99CCFF" if msg["role"] == "user" else "#DDEEFF"
-    align = "flex-end" if msg["role"] == "user" else "flex-start"
+    if msg["role"] == "user":
+        color = "#99CCFF"
+        justify = "flex-end"
+        text_align = "right"
+    else:
+        color = "#DDEEFF"
+        justify = "flex-start"
+        text_align = "left"
+
     return f"""
         <div style='
-            align-self: {align};
-            background-color: {color};
-            padding: 10px 14px;
-            border-radius: 12px;
+            display: flex;
+            justify-content: {justify};
             margin: 5px 0;
-            max-width: 80%;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         '>
-            {msg["content"]}
+            <div style='
+                background-color: {color};
+                padding: 10px 14px;
+                border-radius: 12px;
+                max-width: 80%;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                text-align: {text_align};
+            '>
+                {msg["content"]}
+            </div>
         </div>
     """
