@@ -3,34 +3,50 @@ import requests
 import json
 from PyPDF2 import PdfReader
 from docx import Document
+from datetime import datetime
 import sys
 import os
 
-# 🔧 Accès aux modules externes
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from services.chat_history import save_conversation, load_conversations
-
+from services.chat_history import save_conversation, load_conversations, delete_conversation
 
 def display():
-    # Charger les conversations passées
+    if "current_conversation_id" not in st.session_state:
+        st.session_state.current_conversation_id = None
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
     history = load_conversations(st.session_state.username)
 
-    # Afficher la sidebar
-    st.sidebar.title("💬 Conversations")
+    st.sidebar.title("Conversations")
+
+    if st.sidebar.button("Nouvelle conversation"):
+        st.session_state.messages = []
+        st.session_state.current_conversation_id = None
+        st.rerun()
+
     if history:
         for idx, convo in enumerate(history):
-            label = f"Conversation {idx + 1}"
-            if st.sidebar.button(label):
-                st.session_state.messages = convo["messages"]
-                st.rerun()
+            col1, col2 = st.sidebar.columns([6, 1])
+            convo_id = convo["id"]
+
+            with col1:
+                if st.button(f"Conversation {idx + 1}", key=f"load_{convo_id}"):
+                    st.session_state.messages = convo["messages"]
+                    st.session_state.current_conversation_id = convo_id
+                    st.rerun()
+
+            with col2:
+                if st.button("🗑", key=f"delete_{convo_id}"):
+                    delete_conversation(convo_id, st.session_state.username)
+                    st.rerun()
     else:
         st.sidebar.info("Aucune conversation enregistrée.")
 
-    # Affichage principal
     cols = st.columns([1, 2, 1])
     with cols[1]:
-        st.markdown(f"<h3 style='text-align:center;'>Welcome {st.session_state.username} 👋</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='text-align:center;'>Welcome {st.session_state.username}</h3>", unsafe_allow_html=True)
 
         with st.container():
             with st.form("chat_form", clear_on_submit=True):
@@ -41,7 +57,7 @@ def display():
                     for msg in messages_to_display:
                         st.markdown(render_bubble(msg), unsafe_allow_html=True)
 
-                uploaded_file = st.file_uploader("📄 Submit a document", type=["txt", "pdf", "docx"], label_visibility="visible")
+                uploaded_file = st.file_uploader("Submit a document", type=["txt", "pdf", "docx"], label_visibility="visible")
                 user_input = st.text_input("Your message :", placeholder="Start to say something...", label_visibility="visible")
                 submitted = st.form_submit_button("Send")
 
@@ -60,17 +76,22 @@ def display():
                     data = response.json()
                     assistant_reply = data.get("response", "No response from server.")
                 else:
-                    assistant_reply = f"❌ Server error: {response.status_code}"
+                    assistant_reply = f"Server error: {response.status_code}"
 
             except Exception as e:
-                assistant_reply = f"❌ Request failed: {e}"
+                assistant_reply = f"Request failed: {e}"
 
             assistant_msg = {"role": "assistant", "content": assistant_reply}
             st.session_state.messages.append(assistant_msg)
 
-            # Sauvegarde dans Cosmos DB
-            save_conversation(st.session_state.username, st.session_state.messages)
+            if not st.session_state.current_conversation_id:
+                st.session_state.current_conversation_id = f"{st.session_state.username}_{datetime.utcnow().isoformat()}"
 
+            save_conversation(
+                st.session_state.current_conversation_id,
+                st.session_state.username,
+                st.session_state.messages
+            )
             st.rerun()
 
         if uploaded_file is not None:
@@ -78,24 +99,23 @@ def display():
 
             if file_type == "text/plain":
                 content = uploaded_file.read().decode("utf-8")
-                st.session_state.messages.append({"role": "user", "content": f"📄 Text file:\n\n{content[:1500]}..."})
+                st.session_state.messages.append({"role": "user", "content": f"Text file:\n\n{content[:1500]}..."})
                 st.rerun()
 
             elif file_type == "application/pdf":
                 reader = PdfReader(uploaded_file)
                 text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
-                st.session_state.messages.append({"role": "user", "content": f"📄 PDF:\n\n{text[:1500]}..."})
+                st.session_state.messages.append({"role": "user", "content": f"PDF:\n\n{text[:1500]}..."})
                 st.rerun()
 
             elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
                 doc = Document(uploaded_file)
                 full_text = "\n".join([p.text for p in doc.paragraphs])
-                st.session_state.messages.append({"role": "user", "content": f"📄 DOCX:\n\n{full_text[:1500]}..."})
+                st.session_state.messages.append({"role": "user", "content": f"DOCX:\n\n{full_text[:1500]}..."})
                 st.rerun()
 
             else:
                 st.warning("Unsupported file type.")
-
 
 def render_bubble(msg):
     if msg["role"] == "user":
