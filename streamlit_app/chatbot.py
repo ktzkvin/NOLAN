@@ -1,149 +1,177 @@
 import streamlit as st
-import requests
 import json
+import requests
+import asyncio
 from PyPDF2 import PdfReader
 from docx import Document
-from datetime import datetime
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from services.chat_history import save_conversation, load_conversations, delete_conversation
+from services.rag_engine import call_openai
+
+def generate_title(response: str) -> str:
+    try:
+        title_prompt = (
+            f"Donne-moi un titre très concis (3 à 4 mots max), sans préfixe, "
+            f"résumant la première réponse de l'assistant : {response}"
+        )
+        title = asyncio.run(call_openai(title_prompt)).strip().strip('"')
+        if ":" in title:
+            title = title.split(":", 1)[1].strip()
+        words = title.split()
+        return " ".join(words[:4]) or "Untitled Conversation"
+    except Exception:
+        return "Untitled Conversation"
+
+def render_bubble(msg: dict) -> str:
+    if msg["role"] == "user":
+        background = "background: radial-gradient(circle, rgba(206,223,245,1) 0%, rgba(171,206,237,1) 89%);"
+        justify = "flex-end"
+        text_color = "#000"
+    else:
+        background = "background: radial-gradient(circle, rgba(36,103,171,1) 0%, rgba(14,71,128,1) 89%);"
+        justify = "flex-start"
+        text_color = "#fff"
+    return f"""
+    <div style='display:flex;justify-content:{justify};margin:5px 0;'>
+      <div style='{background} padding:10px 14px; border-radius:12px; max-width:80%; word-wrap:break-word; overflow-wrap:break-word; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:{text_color};'>
+        {msg["content"]}
+      </div>
+    </div>
+    """
+
+def render_loader_bubble() -> str:
+    return """
+    <div style='display:flex;justify-content:flex-start;margin:5px 0;'>
+      <div style='background:#2467ab;padding:10px 14px;border-radius:12px;max-width:80%;box-shadow:0 1px 2px rgba(0,0,0,0.05);'>
+        <div style="display:flex;gap:6px;">
+          <span style="width:8px;height:8px;background:#fff;border-radius:50%;animation:bounce 1.2s infinite ease-in-out;"></span>
+          <span style="width:8px;height:8px;background:#fff;border-radius:50%;animation:bounce 1.2s infinite ease-in-out;animation-delay:0.2s;"></span>
+          <span style="width:8px;height:8px;background:#fff;border-radius:50%;animation:bounce 1.2s infinite ease-in-out;animation-delay:0.4s;"></span>
+        </div>
+      </div>
+    </div>
+    <style>
+    @keyframes bounce {
+      0%,80%,100% {transform:scale(0.6);opacity:0.3;}
+      40% {transform:scale(1);opacity:1;}
+    }
+    </style>
+    """
 
 def display():
-    if "current_conversation_id" not in st.session_state:
-        st.session_state.current_conversation_id = None
+    if "conversation_id" not in st.session_state:
+        st.session_state.conversation_id = None
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
     history = load_conversations(st.session_state.username)
 
     st.sidebar.title("Conversations")
-
-    if st.sidebar.button("Nouvelle conversation"):
-        st.session_state.messages = []
-        st.session_state.current_conversation_id = None
-        st.rerun()
-
     if history:
-        for idx, convo in enumerate(history):
-            col1, col2 = st.sidebar.columns([6, 1])
-            convo_id = convo["id"]
+        for convo in history:
+            is_active = convo["id"] == st.session_state.conversation_id
+            title = convo.get("title", "Untitled Conversation")
+            display_title = (title[:20] + "...") if len(title) > 23 else title
+            label = f"👉 {display_title}" if is_active else display_title
 
+            col1, col2 = st.sidebar.columns([5, 1])
             with col1:
-                if st.button(f"Conversation {idx + 1}", key=f"load_{convo_id}"):
+                if st.button(label, key=convo["id"], use_container_width=True):
+                    st.session_state.conversation_id = convo["id"]
                     st.session_state.messages = convo["messages"]
-                    st.session_state.current_conversation_id = convo_id
                     st.rerun()
-
             with col2:
-                if st.button("🗑", key=f"delete_{convo_id}"):
-                    delete_conversation(convo_id, st.session_state.username)
+                if st.button("🗑️", key="del_"+convo["id"], use_container_width=True):
+                    delete_conversation(convo["id"])
+                    if is_active:
+                        st.session_state.conversation_id = None
+                        st.session_state.messages = []
                     st.rerun()
     else:
         st.sidebar.info("Aucune conversation enregistrée.")
 
+    if st.sidebar.button("Nouvelle conversation", use_container_width=True):
+        st.session_state.conversation_id = None
+        st.session_state.messages = []
+        st.rerun()
+
     cols = st.columns([1, 2, 1])
     with cols[1]:
-        st.markdown(f"<h3 style='text-align:center;'>Welcome {st.session_state.username}</h3>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <h3 style='text-align:center; font-family:"Dancing Script", Helvetica, serif; font-size:1.7rem; font-style:italic; color:#001f3f;'>
+                Bienvenue {st.session_state.username} ! Comment puis-je vous aider ?
+            </h3>
+        """, unsafe_allow_html=True)
 
-        with st.container():
-            with st.form("chat_form", clear_on_submit=True):
-                max_messages = 500
-                messages_to_display = st.session_state.messages[-max_messages:]
-
-                with st.container(height=500):
-                    for msg in messages_to_display:
-                        st.markdown(render_bubble(msg), unsafe_allow_html=True)
-
-                uploaded_file = st.file_uploader("Submit a document", type=["txt", "pdf", "docx"], label_visibility="visible")
-                user_input = st.text_input("Your message :", placeholder="Start to say something...", label_visibility="visible")
-                submitted = st.form_submit_button("Send")
-
-        if submitted and user_input:
-            user_msg = {"role": "user", "content": user_input}
-            st.session_state.messages.append(user_msg)
-
-            try:
-                response = requests.post(
-                    "http://127.0.0.1:8000/orchestrate/",
-                    headers={"Content-Type": "application/json"},
-                    data=json.dumps({"prompt": user_input})
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    assistant_reply = data.get("response", "No response from server.")
+        with st.form("chat_form", clear_on_submit=True):
+            for msg in st.session_state.messages[-500:]:
+                if msg["content"] == "__LOADER__":
+                    st.markdown(render_loader_bubble(), unsafe_allow_html=True)
                 else:
-                    assistant_reply = f"Server error: {response.status_code}"
+                    st.markdown(render_bubble(msg), unsafe_allow_html=True)
 
-            except Exception as e:
-                assistant_reply = f"Request failed: {e}"
+            st.markdown(" ")
+            st.markdown(" ")
+            uploaded_file = st.file_uploader("📄 Joindre un doc.", type=["txt","pdf","docx"], label_visibility="visible")
+            col_input, col_btn = st.columns([8, 1])
+            with col_input:
+                user_input = st.text_input(
+                    "Votre message :", placeholder="J'ai besoin d'aide pour...", label_visibility="visible"
+                )
+            with col_btn:
+                st.markdown("<div style='height: 1.75em;'></div>", unsafe_allow_html=True)
+                submitted = st.form_submit_button("➤")
 
-            assistant_msg = {"role": "assistant", "content": assistant_reply}
-            st.session_state.messages.append(assistant_msg)
 
-            if not st.session_state.current_conversation_id:
-                st.session_state.current_conversation_id = f"{st.session_state.username}_{datetime.utcnow().isoformat()}"
+    if submitted and user_input:
+        st.session_state.messages.append({"role":"user","content":user_input})
+        st.session_state.messages.append({"role":"assistant","content":"__LOADER__"})
+        st.rerun()
 
-            save_conversation(
-                st.session_state.current_conversation_id,
-                st.session_state.username,
-                st.session_state.messages
+    if st.session_state.messages and st.session_state.messages[-1]["content"] == "__LOADER__":
+        user_msg = next((m["content"] for m in reversed(st.session_state.messages[:-1]) if m["role"]=="user"), "")
+        try:
+            resp = requests.post(
+                "http://127.0.0.1:8000/orchestrate/",
+                headers={"Content-Type":"application/json"},
+                data=json.dumps({"prompt":user_msg})
             )
-            st.rerun()
+            assistant_reply = resp.json().get("response","No response") if resp.status_code==200 else f"Error {resp.status_code}"
+        except Exception as e:
+            assistant_reply = f"Request failed: {e}"
 
-        if uploaded_file is not None:
-            file_type = uploaded_file.type
+        st.session_state.messages[-1] = {"role":"assistant","content":assistant_reply}
 
-            if file_type == "text/plain":
-                content = uploaded_file.read().decode("utf-8")
-                st.session_state.messages.append({"role": "user", "content": f"Text file:\n\n{content[:1500]}..."})
-                st.rerun()
+        if st.session_state.conversation_id is None:
+            cid = save_conversation(
+                st.session_state.username,
+                st.session_state.messages,
+                title=generate_title(assistant_reply)
+            )
+            st.session_state.conversation_id = cid
+        else:
+            save_conversation(
+                st.session_state.username,
+                st.session_state.messages,
+                conversation_id=st.session_state.conversation_id
+            )
+        st.rerun()
 
-            elif file_type == "application/pdf":
-                reader = PdfReader(uploaded_file)
-                text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
-                st.session_state.messages.append({"role": "user", "content": f"PDF:\n\n{text[:1500]}..."})
-                st.rerun()
-
-            elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                doc = Document(uploaded_file)
-                full_text = "\n".join([p.text for p in doc.paragraphs])
-                st.session_state.messages.append({"role": "user", "content": f"DOCX:\n\n{full_text[:1500]}..."})
-                st.rerun()
-
-            else:
-                st.warning("Unsupported file type.")
-
-def render_bubble(msg):
-    if msg["role"] == "user":
-        color = "#99CCFF"
-        justify = "flex-end"
-        text_align = "right"
-    else:
-        color = "#DDEEFF"
-        justify = "flex-start"
-        text_align = "left"
-
-    return f"""
-        <div style='
-            display: flex;
-            justify-content: {justify};
-            margin: 5px 0;
-        '>
-            <div style='
-                background-color: {color};
-                padding: 10px 14px;
-                border-radius: 12px;
-                max-width: 80%;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-                text-align: {text_align};
-            '>
-                {msg["content"]}
-            </div>
-        </div>
-    """
+    if uploaded_file is not None:
+        ft = uploaded_file.type
+        if ft == "text/plain":
+            text = uploaded_file.read().decode("utf-8")
+        elif ft == "application/pdf":
+            reader = PdfReader(uploaded_file)
+            text = "".join([p.extract_text() or "" for p in reader.pages])
+        elif ft == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            doc = Document(uploaded_file)
+            text = "\n".join([p.text for p in doc.paragraphs])
+        else:
+            st.warning("Unsupported file type.")
+            return
+        st.session_state.messages.append({"role":"user","content":text[:1500]+"..."})
+        st.rerun()

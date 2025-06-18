@@ -37,7 +37,7 @@ async def orchestrate(request: UserRequest):
                 response_text = await call_openai(request.prompt)
                 result = {
                     "intent": "Autre",
-                    "response": f"Voici ce que j'ai trouvé :\n{response_text}"
+                    "response": response_text
                 }
             except Exception as e:
                 result = {
