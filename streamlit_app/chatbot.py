@@ -6,7 +6,7 @@ from docx import Document
 import sys
 import os
 
-# 🔧 Accès aux modules externes
+# Accès aux modules externes
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from services.chat_history import save_conversation, load_conversations
