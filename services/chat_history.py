@@ -16,8 +16,17 @@ db = client.get_database_client("nolan")
 container = db.get_container_client("chat_history")
 
 def save_conversation(username, messages, conversation_id=None, title=None):
-    if conversation_id is None:
+    # si on ré-ouvre une conversation existante, on récupère son ancien titre
+    if conversation_id:
+        try:
+            existing = container.read_item(item=conversation_id, partition_key=username)
+            old_title = existing.get("title")
+        except:
+            old_title = None
+    else:
+        # nouvelle conversation
         conversation_id = f"{username}_{datetime.utcnow().isoformat()}"
+        old_title = None
 
     item = {
         "id": conversation_id,
@@ -26,8 +35,10 @@ def save_conversation(username, messages, conversation_id=None, title=None):
         "messages": messages,
     }
 
-    if title:
-        item["title"] = title
+    # si on a un titre tout frais ou conservé, on l’ajoute
+    final_title = title or old_title
+    if final_title:
+        item["title"] = final_title
 
     container.upsert_item(item)
     return conversation_id
@@ -38,20 +49,5 @@ def load_conversations(username):
     return list(container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
 
 def delete_conversation(conversation_id):
-    container.delete_item(item=conversation_id, partition_key=conversation_id.split("_")[0])
-
-def update_conversation_title_if_empty(username, prompt):
-    conversations = load_conversations(username)
-    if not conversations:
-        return
-
-    latest = conversations[0]
-    if "title" not in latest or not latest["title"].strip():
-        try:
-            from services.rag_engine import call_openai
-            title_prompt = f"Crée un court titre descriptif pour cette conversation : {prompt}"
-            title = call_openai(title_prompt)
-            latest["title"] = title.strip().strip('"')
-            container.upsert_item(latest)
-        except Exception:
-            pass
+    username = conversation_id.split("_")[0]
+    container.delete_item(item=conversation_id, partition_key=username)
