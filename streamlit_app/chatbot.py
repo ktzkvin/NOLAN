@@ -13,35 +13,18 @@ def display():
             with st.form("chat_form", clear_on_submit=True):
                 max_messages = 500
                 messages_to_display = st.session_state.messages[-max_messages:]
+
                 with st.container(height=500):
-                    for msg in reversed(messages_to_display):
-                        st.markdown(
-                            f"""
-                            <div style='
-                                align-self: flex-end;
-                                background-color: #99CCFF;
-                                padding: 10px 14px;
-                                border-radius: 12px;
-                                margin: 5px 0;
-                                max-width: 80%;
-                                word-wrap: break-word;
-                                overflow-wrap: break-word;
-                                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-                            '>
-                                {msg['content']}
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                    for msg in messages_to_display:  # plus de reversed()
+                        st.markdown(render_bubble(msg), unsafe_allow_html=True)
 
                 uploaded_file = st.file_uploader("📄 Submit a document", type=["txt", "pdf", "docx"], label_visibility="visible")
                 user_input = st.text_input("Your message :", placeholder="Start to say something...", label_visibility="visible")
                 submitted = st.form_submit_button("Send")
 
-            st.markdown("</div>", unsafe_allow_html=True)
-
         if submitted and user_input:
-            st.session_state.messages.append({"role": "user", "content": user_input})
+            user_msg = {"role": "user", "content": user_input}
+            st.session_state.messages.append(user_msg)
 
             try:
                 response = requests.post(
@@ -59,7 +42,9 @@ def display():
             except Exception as e:
                 assistant_reply = f"❌ Request failed: {e}"
 
-            st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+            assistant_msg = {"role": "assistant", "content": assistant_reply}
+            st.session_state.messages.append(assistant_msg)
+
             st.rerun()
 
         if uploaded_file is not None:
@@ -84,3 +69,22 @@ def display():
 
             else:
                 st.warning("Unsupported file type.")
+
+def render_bubble(msg):
+    color = "#99CCFF" if msg["role"] == "user" else "#DDEEFF"
+    align = "flex-end" if msg["role"] == "user" else "flex-start"
+    return f"""
+        <div style='
+            align-self: {align};
+            background-color: {color};
+            padding: 10px 14px;
+            border-radius: 12px;
+            margin: 5px 0;
+            max-width: 80%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        '>
+            {msg["content"]}
+        </div>
+    """
