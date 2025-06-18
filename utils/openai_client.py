@@ -1,6 +1,5 @@
 import openai, os
 from dotenv import load_dotenv
-
 load_dotenv()
 
 openai.api_type = "azure"
@@ -12,37 +11,22 @@ deployment_id = os.getenv("AZURE_MODEL_DEPLOYMENT")
 
 INTENT_CATEGORIES = [
     "DocumentAnalysis", "PolicySearch", "EmployeeDataAccess",
-    "DocumentGeneration", "AdminFunction", "UnknownIntent"
+    "DocumentGeneration", "AdminFunction", "Autre"
 ]
 
 async def detect_intent(user_prompt):
-    prompt = f"""
-You are an HR assistant bot. Classify this request into one of the categories: {INTENT_CATEGORIES}
-
-Only return the intent name.
-
-Request:
-{user_prompt}
-"""
     response = openai.ChatCompletion.create(
         engine=deployment_id,
         messages=[
-            {"role": "system", "content": "You are an HR intent classifier."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "Tu es un classificateur d'intention. Réponds uniquement par un des mots suivants, sans rien d'autre : DocumentAnalysis, PolicySearch, EmployeeDataAccess, DocumentGeneration, AdminFunction, Autre."
+            },
+            {
+                "role": "user",
+                "content": user_prompt
+            }
         ],
         temperature=0
     )
     return response['choices'][0]['message']['content'].strip()
-
-
-# 🔁 Fallback LLM for general questions (used in intent == "Other")
-async def call_openai(prompt: str) -> str:
-    response = openai.ChatCompletion.create(
-        engine=deployment_id,
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7
-    )
-    return response["choices"][0]["message"]["content"].strip()

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from models.intent_model import UserRequest, UserResponse
-from utils.openai_client import detect_intent, call_openai
+from utils.openai_client import detect_intent
 from pipelines import (
     document_analysis,
     policy_search,
@@ -8,6 +8,7 @@ from pipelines import (
     document_generation,
     admin_function
 )
+from services.rag_engine import call_openai, ask_rag
 
 router = APIRouter()
 
@@ -25,21 +26,34 @@ async def orchestrate(request: UserRequest):
         result = await document_generation.handle(request.prompt)
     elif intent == "AdminFunction":
         result = await admin_function.handle(request.prompt)
+    elif intent == "Autre":
+        if not request.prompt or len(request.prompt.strip()) <= 2:
+            result = {
+                "intent": "Autre",
+                "response": "Bonjour ! Comment puis-je vous aider ? 😊"
+            }
+        else:
+            try:
+                response_text = await call_openai(request.prompt)
+                result = {
+                    "intent": "Autre",
+                    "response": f"Voici ce que j'ai trouvé :\n{response_text}"
+                }
+            except Exception as e:
+                result = {
+                    "intent": "Autre",
+                    "response": f"Erreur lors de l'appel assistant : {e}"
+                }
     else:
-        # Fallback chatbot classique (intent "Other" ou inconnu)
-        try:
-            reply = await call_openai(request.prompt)
-            result = {
-                "intent": "Other",
-                "response": reply
-            }
-        except Exception as e:
-            result = {
-                "intent": "Other",
-                "response": f"Erreur OpenAI: {e}"
-            }
+        result = {
+            "intent": "Unknown",
+            "response": "Je n'ai pas pu comprendre la demande."
+        }
 
-    if not isinstance(result, dict) or "intent" not in result or "response" not in result:
-        return UserResponse(intent="Unknown", response="Invalid response structure from pipeline.")
+    if not isinstance(result, dict):
+        result = {
+            "intent": "Erreur",
+            "response": str(result)
+        }
 
     return UserResponse(**result)
