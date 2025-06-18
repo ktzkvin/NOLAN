@@ -69,34 +69,38 @@ def display():
 
     history = load_conversations(st.session_state.username)
 
-    st.sidebar.title("Conversations")
-    if history:
-        for convo in history:
-            is_active = convo["id"] == st.session_state.conversation_id
-            title = convo.get("title", "Untitled Conversation")
-            display_title = (title[:20] + "...") if len(title) > 23 else title
-            label = f"👉 {display_title}" if is_active else display_title
+    with st.sidebar:
+        col_add, col_title = st.columns([1, 4])
+        with col_add:
+            if st.button("➕", use_container_width=True):
+                st.session_state.conversation_id = None
+                st.session_state.messages = []
+                st.rerun()
+        with col_title:
+            st.markdown("## Conversations")
 
-            col1, col2 = st.sidebar.columns([5, 1])
-            with col1:
-                if st.button(label, key=convo["id"], use_container_width=True):
-                    st.session_state.conversation_id = convo["id"]
-                    st.session_state.messages = convo["messages"]
-                    st.rerun()
-            with col2:
-                if st.button("🗑️", key="del_"+convo["id"], use_container_width=True):
-                    delete_conversation(convo["id"])
-                    if is_active:
-                        st.session_state.conversation_id = None
-                        st.session_state.messages = []
-                    st.rerun()
-    else:
-        st.sidebar.info("Aucune conversation enregistrée.")
+        if history:
+            for convo in history:
+                is_active = convo["id"] == st.session_state.conversation_id
+                title = convo.get("title", "Untitled Conversation")
+                short_title = title if len(title) <= 23 else title[:20] + "..."
+                label = f"👉 {short_title}" if is_active else short_title
 
-    if st.sidebar.button("Nouvelle conversation", use_container_width=True):
-        st.session_state.conversation_id = None
-        st.session_state.messages = []
-        st.rerun()
+                col1, col2 = st.columns([5, 1])
+                with col1:
+                    if st.button(label, key=convo["id"], use_container_width=True):
+                        st.session_state.conversation_id = convo["id"]
+                        st.session_state.messages = convo["messages"]
+                        st.rerun()
+                with col2:
+                    if st.button("🗑️", key="del_" + convo["id"], use_container_width=True):
+                        delete_conversation(convo["id"])
+                        if is_active:
+                            st.session_state.conversation_id = None
+                            st.session_state.messages = []
+                        st.rerun()
+        else:
+            st.info("Aucune conversation enregistrée.")
 
     cols = st.columns([1, 2, 1])
     with cols[1]:
@@ -108,42 +112,37 @@ def display():
 
         with st.form("chat_form", clear_on_submit=True):
             for msg in st.session_state.messages[-500:]:
-                if msg["content"] == "__LOADER__":
-                    st.markdown(render_loader_bubble(), unsafe_allow_html=True)
-                else:
-                    st.markdown(render_bubble(msg), unsafe_allow_html=True)
+                if msg["content"] == "__LOADER__": st.markdown(render_loader_bubble(), unsafe_allow_html=True)
+                else: st.markdown(render_bubble(msg), unsafe_allow_html=True)
 
             st.markdown(" ")
             st.markdown(" ")
-            uploaded_file = st.file_uploader("📄 Joindre un doc.", type=["txt","pdf","docx"], label_visibility="visible")
+            uploaded_file = st.file_uploader("📄 Joindre un doc.", type=["txt", "pdf", "docx"], label_visibility="visible")
             col_input, col_btn = st.columns([8, 1])
             with col_input:
-                user_input = st.text_input(
-                    "Votre message :", placeholder="J'ai besoin d'aide pour...", label_visibility="visible"
-                )
+                user_input = st.text_input("Votre message :", placeholder="J'ai besoin d'aide pour...", label_visibility="visible")
             with col_btn:
                 st.markdown("<div style='height: 1.75em;'></div>", unsafe_allow_html=True)
                 submitted = st.form_submit_button("➤")
 
-
     if submitted and user_input:
-        st.session_state.messages.append({"role":"user","content":user_input})
-        st.session_state.messages.append({"role":"assistant","content":"__LOADER__"})
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.session_state.messages.append({"role": "assistant", "content": "__LOADER__"})
         st.rerun()
 
     if st.session_state.messages and st.session_state.messages[-1]["content"] == "__LOADER__":
-        user_msg = next((m["content"] for m in reversed(st.session_state.messages[:-1]) if m["role"]=="user"), "")
+        user_msg = next((m["content"] for m in reversed(st.session_state.messages[:-1]) if m["role"] == "user"), "")
         try:
             resp = requests.post(
                 "http://127.0.0.1:8000/orchestrate/",
-                headers={"Content-Type":"application/json"},
-                data=json.dumps({"prompt":user_msg})
+                headers={"Content-Type": "application/json"},
+                data=json.dumps({"prompt": user_msg})
             )
-            assistant_reply = resp.json().get("response","No response") if resp.status_code==200 else f"Error {resp.status_code}"
+            assistant_reply = resp.json().get("response", "No response") if resp.status_code == 200 else f"Error {resp.status_code}"
         except Exception as e:
             assistant_reply = f"Request failed: {e}"
 
-        st.session_state.messages[-1] = {"role":"assistant","content":assistant_reply}
+        st.session_state.messages[-1] = {"role": "assistant", "content": assistant_reply}
 
         if st.session_state.conversation_id is None:
             cid = save_conversation(
@@ -173,5 +172,5 @@ def display():
         else:
             st.warning("Unsupported file type.")
             return
-        st.session_state.messages.append({"role":"user","content":text[:1500]+"..."})
+        st.session_state.messages.append({"role": "user", "content": text[:1500] + "..."})
         st.rerun()
