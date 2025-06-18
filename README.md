@@ -1,5 +1,7 @@
 # NOLAN — No One Likes Administrative Nonsense
 
+![NOLAN Banner](./assets/banner_nolan.jpg)
+
 Because no one likes administrative nonsense, NOLAN is your AI-powered HR assistant that automates document analysis, HR policy retrieval, employee data access and compliance checks using Azure's AI and cloud services.
 
 ---
