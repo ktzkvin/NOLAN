@@ -1,48 +1,45 @@
 import streamlit as st
-import requests
 import json
+import requests
 from PyPDF2 import PdfReader
 from docx import Document
-from datetime import datetime
 import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from services.chat_history import save_conversation, load_conversations, delete_conversation
+from services.rag_engine import call_openai
+
+def generate_title(prompt):
+    try:
+        title_prompt = f"Crée un court titre descriptif pour cette conversation : {prompt}"
+        return call_openai(title_prompt).strip().strip('"')
+    except:
+        return "Untitled Conversation"
 
 def display():
-    if "current_conversation_id" not in st.session_state:
-        st.session_state.current_conversation_id = None
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
     history = load_conversations(st.session_state.username)
 
     st.sidebar.title("Conversations")
+    if history:
+        for convo in history:
+            label = convo.get("title", "Untitled Conversation")
+            col1, col2 = st.sidebar.columns([5, 1])
+            if col1.button(label, key=convo["id"]):
+                st.session_state.messages = convo["messages"]
+                st.session_state.conversation_id = convo["id"]
+                st.rerun()
+            if col2.button("🗑️", key="del_" + convo["id"]):
+                delete_conversation(convo["id"])
+                st.rerun()
+    else:
+        st.sidebar.info("Aucune conversation enregistrée.")
 
     if st.sidebar.button("Nouvelle conversation"):
         st.session_state.messages = []
-        st.session_state.current_conversation_id = None
+        st.session_state.conversation_id = None
         st.rerun()
-
-    if history:
-        for idx, convo in enumerate(history):
-            col1, col2 = st.sidebar.columns([6, 1])
-            convo_id = convo["id"]
-
-            with col1:
-                if st.button(f"Conversation {idx + 1}", key=f"load_{convo_id}"):
-                    st.session_state.messages = convo["messages"]
-                    st.session_state.current_conversation_id = convo_id
-                    st.rerun()
-
-            with col2:
-                if st.button("🗑", key=f"delete_{convo_id}"):
-                    delete_conversation(convo_id, st.session_state.username)
-                    st.rerun()
-    else:
-        st.sidebar.info("Aucune conversation enregistrée.")
 
     cols = st.columns([1, 2, 1])
     with cols[1]:
@@ -71,27 +68,24 @@ def display():
                     headers={"Content-Type": "application/json"},
                     data=json.dumps({"prompt": user_input})
                 )
-
                 if response.status_code == 200:
                     data = response.json()
                     assistant_reply = data.get("response", "No response from server.")
                 else:
                     assistant_reply = f"Server error: {response.status_code}"
-
             except Exception as e:
                 assistant_reply = f"Request failed: {e}"
 
             assistant_msg = {"role": "assistant", "content": assistant_reply}
             st.session_state.messages.append(assistant_msg)
 
-            if not st.session_state.current_conversation_id:
-                st.session_state.current_conversation_id = f"{st.session_state.username}_{datetime.utcnow().isoformat()}"
+            if "conversation_id" not in st.session_state or st.session_state.conversation_id is None:
+                title = generate_title(user_input)
+                conversation_id = save_conversation(st.session_state.username, st.session_state.messages, title=title)
+                st.session_state.conversation_id = conversation_id
+            else:
+                save_conversation(st.session_state.username, st.session_state.messages, conversation_id=st.session_state.conversation_id)
 
-            save_conversation(
-                st.session_state.current_conversation_id,
-                st.session_state.username,
-                st.session_state.messages
-            )
             st.rerun()
 
         if uploaded_file is not None:
@@ -113,7 +107,6 @@ def display():
                 full_text = "\n".join([p.text for p in doc.paragraphs])
                 st.session_state.messages.append({"role": "user", "content": f"DOCX:\n\n{full_text[:1500]}..."})
                 st.rerun()
-
             else:
                 st.warning("Unsupported file type.")
 
