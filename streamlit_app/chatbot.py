@@ -3,8 +3,31 @@ import requests
 import json
 from PyPDF2 import PdfReader
 from docx import Document
+import sys
+import os
+
+# 🔧 Accès aux modules externes
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from services.chat_history import save_conversation, load_conversations
+
 
 def display():
+    # Charger les conversations passées
+    history = load_conversations(st.session_state.username)
+
+    # Afficher la sidebar
+    st.sidebar.title("💬 Conversations")
+    if history:
+        for idx, convo in enumerate(history):
+            label = f"Conversation {idx + 1}"
+            if st.sidebar.button(label):
+                st.session_state.messages = convo["messages"]
+                st.rerun()
+    else:
+        st.sidebar.info("Aucune conversation enregistrée.")
+
+    # Affichage principal
     cols = st.columns([1, 2, 1])
     with cols[1]:
         st.markdown(f"<h3 style='text-align:center;'>Welcome {st.session_state.username} 👋</h3>", unsafe_allow_html=True)
@@ -15,7 +38,7 @@ def display():
                 messages_to_display = st.session_state.messages[-max_messages:]
 
                 with st.container(height=500):
-                    for msg in messages_to_display:  # plus de reversed()
+                    for msg in messages_to_display:
                         st.markdown(render_bubble(msg), unsafe_allow_html=True)
 
                 uploaded_file = st.file_uploader("📄 Submit a document", type=["txt", "pdf", "docx"], label_visibility="visible")
@@ -45,6 +68,9 @@ def display():
             assistant_msg = {"role": "assistant", "content": assistant_reply}
             st.session_state.messages.append(assistant_msg)
 
+            # Sauvegarde dans Cosmos DB
+            save_conversation(st.session_state.username, st.session_state.messages)
+
             st.rerun()
 
         if uploaded_file is not None:
@@ -70,21 +96,34 @@ def display():
             else:
                 st.warning("Unsupported file type.")
 
+
 def render_bubble(msg):
-    color = "#99CCFF" if msg["role"] == "user" else "#DDEEFF"
-    align = "flex-end" if msg["role"] == "user" else "flex-start"
+    if msg["role"] == "user":
+        color = "#99CCFF"
+        justify = "flex-end"
+        text_align = "right"
+    else:
+        color = "#DDEEFF"
+        justify = "flex-start"
+        text_align = "left"
+
     return f"""
         <div style='
-            align-self: {align};
-            background-color: {color};
-            padding: 10px 14px;
-            border-radius: 12px;
+            display: flex;
+            justify-content: {justify};
             margin: 5px 0;
-            max-width: 80%;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         '>
-            {msg["content"]}
+            <div style='
+                background-color: {color};
+                padding: 10px 14px;
+                border-radius: 12px;
+                max-width: 80%;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                text-align: {text_align};
+            '>
+                {msg["content"]}
+            </div>
         </div>
     """

@@ -7,11 +7,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-openai.api_type    = "azure"
-openai.api_key     = os.getenv("OPENAI_API_KEY")
-openai.api_base    = os.getenv("OPENAI_API_BASE")
+openai.api_type = "azure"
+openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_base = os.getenv("OPENAI_API_BASE")
 openai.api_version = os.getenv("OPENAI_API_VERSION")
-DEPLOYMENT_NAME    = os.getenv("AZURE_MODEL_DEPLOYMENT")
+DEPLOYMENT_NAME = os.getenv("AZURE_MODEL_DEPLOYMENT")
 
 # Pré‐charge une seule fois tous les embeddings
 chunk_vectors = []
